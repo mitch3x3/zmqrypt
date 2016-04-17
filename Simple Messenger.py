@@ -10,10 +10,10 @@ class MainWindow(QtGui.QWidget):
     def __init__(self, parent=None):
         QtGui.QWidget.__init__(self, parent)
         self.setGeometry(600, 300, 320, 300)
-        self.setWindowTitle('ZMQrypt Messenger A')   
+        self.setWindowTitle('Simple ZMQ Messenger')   
         self.layout = QtGui.QGridLayout(self)
         
-        self.peer_ip = ''
+        self.peer_ip = None
         
         self.message_entry = QtGui.QLineEdit(self)
         self.sendButton = QtGui.QPushButton('Send', self)
@@ -73,7 +73,7 @@ class Worker(QtCore.QObject):
         connection = False
         c_bool = True
         while c_bool:
-            if w.peer_ip != '':
+            if w.peer_ip != None:
                 try:
                     sub_socket.connect("tcp://{0}:{1}".format(w.peer_ip, sub_port))
                     sub_socket.setsockopt(zmq.SUBSCRIBE, topicfilter)
