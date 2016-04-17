@@ -16,6 +16,7 @@ class MainWindow(QtGui.QWidget):
         self.layout = QtGui.QGridLayout(self)
         
         self.peer_ip = None
+        self.connection = False
         self.peer_pub_key = None
         self.encryption_bool = False
         
@@ -30,11 +31,13 @@ class MainWindow(QtGui.QWidget):
         self.peer_key = QtGui.QLabel(self)
         self.peer_key.setText("Peer's Public Key: ")
         self.key_set = QtGui.QPushButton("Set")
+        self.encryption_toggle = QtGui.QPushButton("Encryption: Deactivated")
         
         self.sendButton.clicked.connect(self.send)
         self.ip_set.clicked.connect(self.connect)
         #self.ip_set.clicked.connect(self.give_handshake)
         self.key_set.clicked.connect(self.recv_handshake)
+        self.encryption_toggle.clicked.connect(self.encrypt_toggle)
         
         #self.label = QtGui.QLabel('Count = 0', self)
         #self.button = QtGui.QPushButton('Start', self)
@@ -46,14 +49,14 @@ class MainWindow(QtGui.QWidget):
         self.layout.addWidget(self.peer_key, 1, 0, 1, 1)
         self.layout.addWidget(self.peer_pub_entry, 1, 1, 1, 2)
         self.layout.addWidget(self.key_set, 1, 3, 1, 1)
-        self.layout.addWidget(self.listwidget, 2, 0, 1, 4)
-        self.layout.addWidget(self.message_entry, 3, 0, 1, 3)
-        self.layout.addWidget(self.sendButton, 3, 3, 1, 1)
+        self.layout.addWidget(self.encryption_toggle, 2, 0, 1, 4)
+        self.layout.addWidget(self.listwidget, 3, 0, 1, 4)
+        self.layout.addWidget(self.message_entry, 4, 0, 1, 3)
+        self.layout.addWidget(self.sendButton, 4, 3, 1, 1)
 
         #layout.addWidget(self.button)
         self._active = False
-        
-
+    
     def send(self):
         if self.encryption_bool == False:
             self.reg_send()
@@ -64,7 +67,7 @@ class MainWindow(QtGui.QWidget):
         if not self._active:
             user_input = self.message_entry.text()
             message = str(user_input)
-            pub_socket.send(message)
+            pub_socket.send_string("%s%s" % (topic, message))
             self.add_A(message)
             self.message_entry.clear()
             #QtCore.QTimer.singleShot(0, self.runLoop)
@@ -76,36 +79,44 @@ class MainWindow(QtGui.QWidget):
             user_input = self.message_entry.text()
             message = str(user_input)
             crypt_msg = send(message, self.peer_pub_key)
-            #user_input = user_input.encode('ascii')
             pub_socket.send("%s%s" % (topic, crypt_msg))
-            print "IN: ", crypt_msg
+            #print "IN: ", crypt_msg
             self.add_A(message)
             self.message_entry.clear()
             #QtCore.QTimer.singleShot(0, self.runLoop)
         else:
             self._active = False
     
-    def give_handshake(self):
-        b64_key = b64_encode(pub_key)
-        pub_socket.send_string("%s" % str(b64_key))
-        string = sub_socket.recv()
-        request = string[5:]
-        w.add_B(request)
-    
-    def recv_handshake(self):
-        self.encryption_bool = True
-        user_input = self.peer_pub_entry.text()
-        self.peer_pub_key = str(user_input)
-    
     def connect(self):
         user_input = self.ip_entry.text()
         self.peer_ip = str(user_input)
+    
+    def encrypt_toggle(self):
+        # not operator toggles boolean values
+        self.encryption_bool = not self.encryption_bool
+        if self.encryption_bool == True:
+            self.encryption_toggle.setText("Encryption: Activated")
+        else:
+            self.encryption_toggle.setText("Encryption: Deactivated")
+    
+    def recv_handshake(self):
+        #self.encryption_bool = True
+        user_input = self.peer_pub_entry.text()
+        peer_b64_key = str(user_input)
+        self.peer_pub_key = b64_decode(peer_b64_key)
     
     def add_A(self, text):
         self.listwidget.addItem("A: " + text)
         
     def add_B(self, text):
         self.listwidget.addItem("B: " + text)
+        
+    def add_PK(self, text):
+        self.listwidget.addItem("Send this key to peer:")
+        self.listwidget.addItem(text)
+    
+    def add_error(self, text):
+        self.listwidget.addItem(text)
 
 # very testable class (hint: you can use mock.Mock for the signals)
 class Worker(QtCore.QObject):
@@ -114,42 +125,33 @@ class Worker(QtCore.QObject):
 
     @QtCore.pyqtSlot()
     def processA(self):
-        connection = False
-        c_bool = True
-        while c_bool:
-            if w.peer_ip != None:
-                try:
-                    sub_socket.connect("tcp://{0}:{1}".format(w.peer_ip, sub_port))
-                    #sub_socket.setsockopt(zmq.SUBSCRIBE, topicfilter)
-                    connection = True
-                    print "Connected to: " + str(w.peer_ip) + ":" + str(sub_port)
-                    c_bool = False
-                    
-                except:
-                    connection = False
-                    print "Invalid IP Address"
-        
-        if connection == True and w.encryption_bool == False: 
-            print "Regular messaging"
-            while True:
-                message = sub_socket.recv()
-                w.add_B(message)
-                print "B: " + str(message)
-            self.finished.emit()
-        
-        if connection == True and w.encryption_bool == True: 
-            while True:
-                string = sub_socket.recv()
-                request = string[5:]
-                #topic = string[:5]
-                message = recv(request, priv_key)
-                w.add_B(message)
-                #print "B: " + str(message)
-            self.finished.emit()
+        while w.connection:
+            if w.encryption_bool == False:  
+                print "REGULAR MODE"      
+                while not w.encryption_bool:
+                    string = sub_socket.recv()
+                    message = string[5:]
+                    #topic = string[:5]
+                    w.add_B(message)
+                    #print "B: " + str(message)
+                self.finished.emit()
+            
+            if w.encryption_bool == True:
+                print "ENCRYPTION MODE" 
+                while w.encryption_bool:
+                    string = sub_socket.recv()
+                    request = string[5:]
+                    try:
+                        message = recv(request, priv_key)
+                        w.add_B(message)
+                    except: 
+                        w.add_error("Incorrect public key")
+                    #topic = string[:5]
+                    #print "B: " + str(message)
+                self.finished.emit()
                 
     @QtCore.pyqtSlot()
     def processB(self):
-        b64_key = b64_encode(pub_key)
         
         c_bool = True
         #hs_bool = True
@@ -158,14 +160,16 @@ class Worker(QtCore.QObject):
                 try:
                     sub_socket.connect("tcp://{0}:{1}".format(w.peer_ip, sub_port))
                     sub_socket.setsockopt(zmq.SUBSCRIBE, topicfilter)
-                    connection = True
+                    w.connection = True
                     print "Connected to: " + str(w.peer_ip) + ":" + str(sub_port)
                     c_bool = False
                     
                 except:
-                    connection = False
+                    w.connection = False
                     print "Invalid IP Address"
-        
+                    
+        b64_key = b64_encode(pub_key)
+        w.add_PK(b64_key)
         #while hs_bool:
             #client_receiver.RCVTIMEO = 1000
             #poller = zmq.Poller()
@@ -189,16 +193,15 @@ if __name__ == '__main__':
     obj = Worker()  # no parent!
     #obj.dataReady.connect(onDataReady)
     
-    pub_port = "5555"
-    sub_port = "5556"
+    pub_port = "5556"
+    sub_port = "5555"
     topic = "10001"
     topicfilter = "10001"
     context = zmq.Context()
-    
-    sub_socket = context.socket(zmq.SUB)
-    #sub_socket.setsockopt(zmq.SUBSCRIBE, topicfilter)
+
     pub_socket = context.socket(zmq.PUB)
     pub_socket.bind("tcp://*:%s" % pub_port)
+    sub_socket = context.socket(zmq.SUB)
     
     (pub_key, priv_key) = rsa.newkeys(512)
     
