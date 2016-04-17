@@ -17,6 +17,8 @@ class MainWindow(QtGui.QWidget):
         
         self.peer_ip = None
         self.connection = False
+        self.peer_pub_key = None
+        self.encryption_bool = False
         
         self.message_entry = QtGui.QLineEdit(self)
         self.sendButton = QtGui.QPushButton('Send', self)
@@ -42,14 +44,33 @@ class MainWindow(QtGui.QWidget):
 
         #layout.addWidget(self.button)
         self._active = False
-        
-
+    
     def send(self):
+        if self.encryption_bool == False:
+            self.reg_send()
+        else:
+            self.en_send()
+    
+    def reg_send(self):
         if not self._active:
             user_input = self.message_entry.text()
             message = str(user_input)
             #user_input = user_input.encode('ascii')
             pub_socket.send_string("%s%s" % (topic, message))
+            self.add_A(message)
+            self.message_entry.clear()
+            #QtCore.QTimer.singleShot(0, self.runLoop)
+        else:
+            self._active = False
+    
+    def en_send(self):
+        if not self._active:
+            user_input = self.message_entry.text()
+            message = str(user_input)
+            crypt_msg = send(message, self.peer_pub_key)
+            #user_input = user_input.encode('ascii')
+            pub_socket.send("%s%s" % (topic, crypt_msg))
+            print "IN: ", crypt_msg
             self.add_A(message)
             self.message_entry.clear()
             #QtCore.QTimer.singleShot(0, self.runLoop)
@@ -65,6 +86,10 @@ class MainWindow(QtGui.QWidget):
         
     def add_B(self, text):
         self.listwidget.addItem("B: " + text)
+        
+    def add_PK(self, text):
+        self.listwidget.addItem("Send this key to peer:")
+        self.listwidget.addItem(text)
 
 # very testable class (hint: you can use mock.Mock for the signals)
 class Worker(QtCore.QObject):
@@ -74,7 +99,7 @@ class Worker(QtCore.QObject):
     @QtCore.pyqtSlot()
     def processA(self):
             
-        if w.connection == True:        
+        if w.connection == True and w.encryption_bool == False:        
             while True:
                 string = sub_socket.recv()
                 message = string[5:]
@@ -82,10 +107,19 @@ class Worker(QtCore.QObject):
                 w.add_B(message)
                 #print "B: " + str(message)
             self.finished.emit()
+        
+        if w.connection == True and w.encryption_bool == True: 
+            while True:
+                string = sub_socket.recv()
+                request = string[5:]
+                #topic = string[:5]
+                message = recv(request, priv_key)
+                w.add_B(message)
+                #print "B: " + str(message)
+            self.finished.emit()
                 
     @QtCore.pyqtSlot()
     def processB(self):
-        b64_key = b64_encode(pub_key)
         
         c_bool = True
         #hs_bool = True
@@ -101,7 +135,9 @@ class Worker(QtCore.QObject):
                 except:
                     w.connection = False
                     print "Invalid IP Address"
-        
+                    
+        b64_key = b64_encode(pub_key)
+        w.add_PK(b64_key)
         #while hs_bool:
             #client_receiver.RCVTIMEO = 1000
             #poller = zmq.Poller()
