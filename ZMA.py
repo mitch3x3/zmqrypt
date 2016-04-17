@@ -27,9 +27,15 @@ class MainWindow(QtGui.QWidget):
         self.ip_address = QtGui.QLabel(self)
         self.ip_address.setText("IP Address: ")
         self.ip_set = QtGui.QPushButton("Set")
+        self.peer_pub_entry = QtGui.QLineEdit(self)
+        self.peer_key = QtGui.QLabel(self)
+        self.peer_key.setText("Peer's Public Key: ")
+        self.key_set = QtGui.QPushButton("Set")
         
         self.sendButton.clicked.connect(self.send)
         self.ip_set.clicked.connect(self.connect)
+        #self.ip_set.clicked.connect(self.give_handshake)
+        self.key_set.clicked.connect(self.recv_handshake)
         
         #self.label = QtGui.QLabel('Count = 0', self)
         #self.button = QtGui.QPushButton('Start', self)
@@ -38,9 +44,12 @@ class MainWindow(QtGui.QWidget):
         self.layout.addWidget(self.ip_address, 0, 0, 1, 1)
         self.layout.addWidget(self.ip_entry, 0, 1, 1, 2)
         self.layout.addWidget(self.ip_set, 0, 3, 1, 1)
-        self.layout.addWidget(self.listwidget, 1, 0, 1, 4)
-        self.layout.addWidget(self.message_entry, 2, 0, 1, 3)
-        self.layout.addWidget(self.sendButton, 2, 3, 1, 1)
+        self.layout.addWidget(self.peer_key, 1, 0, 1, 1)
+        self.layout.addWidget(self.peer_pub_entry, 1, 1, 1, 2)
+        self.layout.addWidget(self.key_set, 1, 3, 1, 1)
+        self.layout.addWidget(self.listwidget, 2, 0, 1, 4)
+        self.layout.addWidget(self.message_entry, 3, 0, 1, 3)
+        self.layout.addWidget(self.sendButton, 3, 3, 1, 1)
 
         #layout.addWidget(self.button)
         self._active = False
@@ -70,7 +79,7 @@ class MainWindow(QtGui.QWidget):
             crypt_msg = send(message, self.peer_pub_key)
             #user_input = user_input.encode('ascii')
             pub_socket.send("%s%s" % (topic, crypt_msg))
-            print "IN: ", crypt_msg
+            #print "IN: ", crypt_msg
             self.add_A(message)
             self.message_entry.clear()
             #QtCore.QTimer.singleShot(0, self.runLoop)
@@ -81,6 +90,12 @@ class MainWindow(QtGui.QWidget):
         user_input = self.ip_entry.text()
         self.peer_ip = str(user_input)
     
+    def recv_handshake(self):
+        self.encryption_bool = True
+        user_input = self.peer_pub_entry.text()
+        peer_b64_key = str(user_input)
+        self.peer_pub_key = b64_decode(peer_b64_key)
+    
     def add_A(self, text):
         self.listwidget.addItem("A: " + text)
         
@@ -90,6 +105,9 @@ class MainWindow(QtGui.QWidget):
     def add_PK(self, text):
         self.listwidget.addItem("Send this key to peer:")
         self.listwidget.addItem(text)
+    
+    def add_error(self, text):
+        self.listwidget.addItem(text)
 
 # very testable class (hint: you can use mock.Mock for the signals)
 class Worker(QtCore.QObject):
@@ -98,9 +116,9 @@ class Worker(QtCore.QObject):
 
     @QtCore.pyqtSlot()
     def processA(self):
-            
-        if w.connection == True and w.encryption_bool == False:        
-            while True:
+        if w.connection == True and w.encryption_bool == False:  
+            print "REGULAR MODE"      
+            while not w.encryption_bool:
                 string = sub_socket.recv()
                 message = string[5:]
                 #topic = string[:5]
@@ -108,13 +126,17 @@ class Worker(QtCore.QObject):
                 #print "B: " + str(message)
             self.finished.emit()
         
-        if w.connection == True and w.encryption_bool == True: 
-            while True:
+        if w.connection == True and w.encryption_bool == True:
+            print "ENCRYPTION MODE" 
+            while w.encryption_bool:
                 string = sub_socket.recv()
                 request = string[5:]
+                try:
+                    message = recv(request, priv_key)
+                    w.add_B(message)
+                except: 
+                    w.add_error("Incorrect public key")
                 #topic = string[:5]
-                message = recv(request, priv_key)
-                w.add_B(message)
                 #print "B: " + str(message)
             self.finished.emit()
                 
