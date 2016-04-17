@@ -3,7 +3,9 @@ import time
 import zmq
 import signal
 from logger import log, get_user_type
-from crypt import AESCipher, generate_hex_pin
+from RSA import send, recv
+import rsa
+
 
 # DEFINITIONS
 user_type = get_user_type() # Receives user input log settings
@@ -13,13 +15,11 @@ server = context.socket(zmq.REP)
 server.bind("tcp://*:5555")
 
 # Enter messages for encryption
-print "### Hello! Type your secret message below ###"
-message = raw_input('>: ')
-#hex_pin = generate_hex_pin()
-hex_pin = 'FO68PISX8X9SV36J'
-crypt = AESCipher(hex_pin)
-msg_en = crypt.encrypt(message)
-msg_de = crypt.decrypt(msg_en)
+#print "### Hello! Type your secret message below ###"
+#message = raw_input('>: ')
+
+(pub_key, priv_key) = rsa.newkeys(512)
+
 #print "IN: ", msg_en
 #print "OUT: ", msg_de
 
@@ -34,8 +34,8 @@ cycles = 0
 while True:
     request = server.recv()
     if RepresentsInt(request) == False:
-        msg_de = crypt.decrypt(request)
-        print "OUT: ", msg_de
+        message = recv(request, priv_key)
+        print "OUT: ", message
     cycles += 1
 
     # Simulate various problems, after a few cycles

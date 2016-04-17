@@ -1,29 +1,3 @@
-'''
-from Crypto.Cipher import AES
-from Crypto import Random
-import base64
-import os
-
-def encryption(privateInfo):
-    block_size = 16
-    padding = ' { '
-
-    pad = lambda s: s + (block_size - len(s) % block_size) * padding
-
-    EncodeAES = lambda c, s: base64.b64encode(c.encrypt(pad(s)))
-
-    secret = os.urandom(block_size)
-    print 'encryption key: ', secret
-
-    cipher = AES.new(secret)
-
-    encoded = EncodeAES(cipher, privateInfo)
-
-    print "Encrypted String: ", encoded
-
-#encryption('CCCCEEEEWWWWRRRR')
-'''
-
 import base64
 from Crypto.Cipher import AES
 import os

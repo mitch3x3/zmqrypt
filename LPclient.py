@@ -1,11 +1,15 @@
 import sys
 import zmq
 import signal
+import rsa
 from logger import log, get_user_type
-from crypt import AESCipher, generate_hex_pin
+from RSA import send, recv, b64_encode, b64_decode
 
 print "IP: "
 ip_address = raw_input('>: ')
+#print "PUBLIC KEY: "
+#pub_key = raw_input('>: ')
+(pub_key, priv_key) = rsa.newkeys(512)
 
 # DEFINITIONS
 user_type = get_user_type() # Receives user input log settings
@@ -25,18 +29,16 @@ poll.register(client, zmq.POLLIN)
 # Enter messages for encryption
 print "### Hello! Type your secret message below ###"
 message = raw_input('>: ')
-#hex_pin = generate_hex_pin()
-hex_pin = 'FO68PISX8X9SV36J'
-crypt = AESCipher(hex_pin)
-msg_en = crypt.encrypt(message)
-print "IN: ", msg_en
+crypt_msg = send(message, pub_key)
+#message = recv(crypt_msg, priv_key)
+print "IN: ", crypt_msg
 #print "OUT: ", msg_de
 
 
 sequence = 0
 retries_left = REQUEST_RETRIES
 while retries_left:
-    sequence = msg_en
+    sequence = crypt_msg
     request = str(sequence)
     client.send(request)
     log(user_type, 'INFO', 'Sending (%s)' % request)
