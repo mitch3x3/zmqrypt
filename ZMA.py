@@ -16,6 +16,7 @@ class MainWindow(QtGui.QWidget):
         self.layout = QtGui.QGridLayout(self)
         
         self.peer_ip = None
+        self.connection = False
         
         self.message_entry = QtGui.QLineEdit(self)
         self.sendButton = QtGui.QPushButton('Send', self)
@@ -72,21 +73,8 @@ class Worker(QtCore.QObject):
 
     @QtCore.pyqtSlot()
     def processA(self):
-        connection = False
-        c_bool = True
-        while c_bool:
-            if w.peer_ip != None:
-                try:
-                    sub_socket.connect("tcp://{0}:{1}".format(w.peer_ip, sub_port))
-                    sub_socket.setsockopt(zmq.SUBSCRIBE, topicfilter)
-                    connection = True
-                    print "Connected to: " + str(w.peer_ip) + ":" + str(sub_port)
-                    c_bool = False
-                except:
-                    connection = False
-                    print "Invalid IP Address"
             
-        if connection == True:        
+        if w.connection == True:        
             while True:
                 string = sub_socket.recv()
                 message = string[5:]
@@ -98,7 +86,6 @@ class Worker(QtCore.QObject):
     @QtCore.pyqtSlot()
     def processB(self):
         b64_key = b64_encode(pub_key)
-        print b64_key
         
         c_bool = True
         #hs_bool = True
@@ -107,12 +94,12 @@ class Worker(QtCore.QObject):
                 try:
                     sub_socket.connect("tcp://{0}:{1}".format(w.peer_ip, sub_port))
                     sub_socket.setsockopt(zmq.SUBSCRIBE, topicfilter)
-                    connection = True
+                    w.connection = True
                     print "Connected to: " + str(w.peer_ip) + ":" + str(sub_port)
                     c_bool = False
                     
                 except:
-                    connection = False
+                    w.connection = False
                     print "Invalid IP Address"
         
         #while hs_bool:
