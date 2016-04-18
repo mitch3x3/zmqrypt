@@ -9,6 +9,9 @@ This packages dependencies are:
 
 ### Installation
 
-$ pip install zmq.
-$ pip install python-rsa.
+Install dependencies with the python package manager pip:
+
+    $ pip install pyzmq
+    $ pip install python-rsa.
+
 $ brew install pyqt
