@@ -3,8 +3,8 @@
 ZMQrypt is a simple encryption messenger written in Python 2.7.
 
 This packages dependencies are:
-[PyZMQ](https://github.com/zeromq/pyzmq/).
-[python-rsa](https://github.com/sybrenstuvel/python-rsa/).
+[PyZMQ](https://github.com/zeromq/pyzmq/),
+[python-rsa](https://github.com/sybrenstuvel/python-rsa/),
 [PyQt4](https://wiki.python.org/moin/PyQt4).
 
 ### Installation
@@ -12,6 +12,6 @@ This packages dependencies are:
 Install dependencies with the python package manager pip:
 
     $ pip install pyzmq
-    $ pip install python-rsa.
+    $ pip install python-rsa
 
 $ brew install pyqt
